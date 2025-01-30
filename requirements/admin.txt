@@ -1,0 +1,6 @@
+Django
+django-unfold
+psycopg2
+pyTelegramBotAPI
+pytz
+requests

@@ -1,0 +1,8 @@
+aiogram
+pytz
+yookassa
+apscheduler
+pandas
+numpy
+sqlalchemy
+asyncpg
