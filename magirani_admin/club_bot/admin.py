@@ -1,7 +1,20 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
 
-from .models import User, Info, Payment, Admin, Statistic, ActionJournal, AlterPayMethod, PaymentPS
+
+from .models import (
+    User,
+    Info,
+    Payment,
+    Admin,
+    Statistic,
+    ActionJournal,
+    AlterPayMethod,
+    PaymentPS,
+    SaveMessages,
+    MailJournal,
+    ErrorJournal
+)
 
 
 @admin.register(User)
@@ -118,9 +131,45 @@ class Veiw_Admin_Table(admin.ModelAdmin):
 class Veiw_Admin_Table(ModelAdmin):
     list_display = ['orm_id', 'name', 'is_active']
 
-    # def is_active_str(self, obj):
-    #     if obj.is_admin:
-    #         return 'Активен'
-    #     else:
-    #         return 'Не активен'
-    # is_active_str.short_description = 'Активен'
+
+@admin.register(SaveMessages)
+class SaveMessagesAdmin(ModelAdmin):
+    list_display = ('id', 'title')
+    search_fields = ('title', 'text')
+    ordering = ('-id',)
+
+
+@admin.register(MailJournal)
+class MailJournalAdmin(ModelAdmin):
+    list_display = ('id', 'created_at', 'all_msg', 'success', 'failed', 'blocked', 'unblocked', 'time_mailing')
+    readonly_fields = ('id', 'created_at', 'all_msg', 'success', 'failed', 'blocked', 'unblocked', 'time_mailing', 'report')
+    ordering = ('-id',)
+
+    def has_add_permission(self, request):
+        """Запрещаем добавление новых записей из админки"""
+        return False
+
+
+@admin.register(ErrorJournal)
+class ErrorJournalAdmin(ModelAdmin):
+    list_display = ('created_at', 'user_full_name', 'error', 'message', 'comment')
+    readonly_fields = ('id', 'created_at', 'user_id', 'error', 'message')
+    list_editable = ('comment',)
+    ordering = ('-id',)
+
+    def has_add_permission(self, request):
+        """Запрещаем добавление новых записей из админки"""
+        return False
+
+    def user_full_name(self, obj):
+        user = User.objects.filter(user_id=obj.user_id).first()
+        if not user:
+            return '-'
+        full_name = user.full_name.strip() if user.full_name else None
+        if full_name:
+            return full_name
+        else:
+            return str(obj.user_id)
+
+    user_full_name.short_description = 'Пользователь'
+

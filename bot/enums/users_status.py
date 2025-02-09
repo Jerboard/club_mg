@@ -7,3 +7,4 @@ class BaseStatus(str, enum.Enum):
     ADD_USER_EMAIL = 'add_user_email'
     SEND_USERS_MESSAGE = 'send_users_message'
     DEL_USER = 'del_user'
+    EDIT_FUNNEL = 'edit_funnel'

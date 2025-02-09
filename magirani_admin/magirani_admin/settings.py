@@ -38,7 +38,7 @@ ROOT_URLCONF = 'magirani_admin.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': ['templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -67,8 +67,6 @@ DATABASES = {
         'HOST': os.getenv('DB_HOST') if DEBUG else os.getenv('DB_HOST_LOCAL'),
         'PORT': os.getenv('DB_PORT'),
     }}
-
-print(f'DATABASES: {DATABASES}')
 
 
 # Password validation

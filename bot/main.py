@@ -14,6 +14,9 @@ async def main() -> None:
     await set_main_menu()
     if not conf.debug:
         await scheduler_start()
+    else:
+        pass
+        # await scheduler_start()
     await dp.start_polling(bot)
     await bot.session.close()
 

@@ -11,78 +11,98 @@ from enums import UserStatus
 
 async def get_statistic():
     time_start = datetime.now ()
-    users = await db.get_all_users ()
-    columns = ['id', 'user_id', 'full_name', 'username', 'first_visit', 'status', 'kick_date', 'alarm_2_day',
-               'last_pay_id', 'recurrent', 'tariff', 'email']
-    users_df = pd.DataFrame (users, columns=columns)
-    users_df = users_df.set_index ('id')
-    paid_users_df = users_df[users_df['status'] != UserStatus.NEW.value]
+    today = datetime.now()
+    thirty_days_ago = today - timedelta(days=30)
+    sixty_days_ago = thirty_days_ago - timedelta(days=30)
 
-    percent_pay_users = round ((len (paid_users_df) / len (users_df)) * 100, 2)
+    try:
+        users = await db.get_all_users ()
+        columns = ['id', 'user_id', 'full_name', 'username', 'first_visit', 'status', 'kick_date', 'alarm_2_day',
+                   'last_pay_id', 'recurrent', 'tariff', 'email']
+        users_df = pd.DataFrame (users, columns=columns)
+        users_df = users_df.set_index ('id')
+        paid_users_df = users_df[users_df['status'] != UserStatus.NEW.value]
 
-    users_payment = await db.get_all_table_payments ()
-    payment_df = pd.DataFrame(
-        data=users_payment,
-        columns=['id', 'user_id', 'date', 'total_amount', 'tg_payment_id', 'provider_payment_charge_id'])
-    payment_df = payment_df.set_index('id')
-    payment_df = payment_df[payment_df['total_amount'] == 1500]
+        percent_pay_users = round ((len (paid_users_df) / len (users_df)) * 100, 2)
 
-    # Группировка по пользователю и подсчет количества оплат для каждого пользователя
-    user_payments_count = payment_df.groupby ('user_id').agg ({'tg_payment_id': 'count'})
+        users_payment = await db.get_all_table_payments ()
+        payment_df = pd.DataFrame(
+            data=users_payment,
+            columns=['id', 'user_id', 'date', 'total_amount', 'tg_payment_id', 'provider_payment_charge_id'])
+        payment_df = payment_df.set_index('id')
+        payment_df = payment_df[payment_df['total_amount'] == 1500]
 
-    # Получение даты последней оплаты для каждого пользователя
-    user_last_payment_date = payment_df.groupby ('user_id') ['date'].max ()
+        # Группировка по пользователю и подсчет количества оплат для каждого пользователя
+        user_payments_count = payment_df.groupby ('user_id').agg ({'tg_payment_id': 'count'})
 
-    # Объединение результатов в один DataFrame
-    user_payments_info = pd.merge (user_payments_count, user_last_payment_date, on='user_id')
+        # Получение даты последней оплаты для каждого пользователя
+        user_last_payment_date = payment_df.groupby ('user_id') ['date'].max ()
 
-    # Переименование столбцов
-    # user_payments_info.columns = ['user_id', 'payment_count', 'last_payment_date']
-    user_payments_info.columns = ['payment_count', 'last_payment_date']
-    today = datetime.now ()
-    thirty_days_ago = today - timedelta (days=30)
-    sixty_days_ago = thirty_days_ago - timedelta (days=30)
+        # Объединение результатов в один DataFrame
+        user_payments_info = pd.merge (user_payments_count, user_last_payment_date, on='user_id')
 
-    thirty_days_ago = pd.to_datetime(thirty_days_ago, utc=True)
-    sixty_days_ago = pd.to_datetime(sixty_days_ago, utc=True)
+        # Переименование столбцов
+        # user_payments_info.columns = ['user_id', 'payment_count', 'last_payment_date']
+        user_payments_info.columns = ['payment_count', 'last_payment_date']
 
-    # Новые подписчики за последние 30 дней
-    new_users_30 = user_payments_info [(user_payments_info ['last_payment_date'] >= thirty_days_ago) &
-                                       (user_payments_info ['payment_count'] == 1)]
-    # Продлили за последние 30 дней
-    renewed_users_30 = user_payments_info [(user_payments_info ['last_payment_date'] >= thirty_days_ago) &
-                                           (user_payments_info ['payment_count'] > 1)]
-    # Отписались за последние 30 дней
-    kick_users_30 = user_payments_info [(user_payments_info ['last_payment_date'] < thirty_days_ago) &
-                                        (user_payments_info ['last_payment_date'] >= sixty_days_ago) &
-                                        (user_payments_info ['payment_count'] > 0)]
+        thirty_days_ago = pd.to_datetime(thirty_days_ago, utc=True)
+        sixty_days_ago = pd.to_datetime(sixty_days_ago, utc=True)
 
-    # среднее количество подписчиков за месяц
-    average_followers_count_30_day = await db.get_average_followers_count ()
-    # print(average_followers_count_30_day)
-    percent_new_subscribers = (len (new_users_30) / average_followers_count_30_day) * 100
-    percent_renewed_subscribers = (len (renewed_users_30) / average_followers_count_30_day) * 100
-    percent_unsubscribed = (len (kick_users_30) / average_followers_count_30_day) * 100
+        # Новые подписчики за последние 30 дней
+        new_users_30 = user_payments_info [(user_payments_info ['last_payment_date'] >= thirty_days_ago) &
+                                           (user_payments_info ['payment_count'] == 1)]
+        # Продлили за последние 30 дней
+        renewed_users_30 = user_payments_info [(user_payments_info ['last_payment_date'] >= thirty_days_ago) &
+                                               (user_payments_info ['payment_count'] > 1)]
+        # Отписались за последние 30 дней
+        kick_users_30 = user_payments_info [(user_payments_info ['last_payment_date'] < thirty_days_ago) &
+                                            (user_payments_info ['last_payment_date'] >= sixty_days_ago) &
+                                            (user_payments_info ['payment_count'] > 0)]
 
-    # средняя продолжительность подписки
-    medium = round (user_payments_info['payment_count'].mean (), 2)
-    return {
-        'today': today.strftime (conf.date_format),
-        "day_30_ago": thirty_days_ago.strftime (conf.date_format),
-        "day_60_ago": sixty_days_ago.strftime (conf.date_format),
-        'total_sub_count': len (users_df [users_df ['status'] == UserStatus.SUB.value]),
-        'new_followers': len (new_users_30),
-        'renewed_followers': len (renewed_users_30),
-        'kick_users_count': len (kick_users_30),
-        'percent_unsubscribers': round (percent_unsubscribed, 2),
-        'percent_new_subscribers': round (percent_new_subscribers, 2),
-        'percent_renewed_followers': round (percent_renewed_subscribers, 2),
-        'medium': medium,
-        'percent_pay_users': percent_pay_users
-    }
+        # среднее количество подписчиков за месяц
+        average_followers_count_30_day = await db.get_average_followers_count ()
+        # print(average_followers_count_30_day)
+        percent_new_subscribers = (len (new_users_30) / average_followers_count_30_day) * 100
+        percent_renewed_subscribers = (len (renewed_users_30) / average_followers_count_30_day) * 100
+        percent_unsubscribed = (len (kick_users_30) / average_followers_count_30_day) * 100
+
+        # средняя продолжительность подписки
+        medium = round (user_payments_info['payment_count'].mean (), 2)
+        return {
+            'today': today.strftime (conf.date_format),
+            "day_30_ago": thirty_days_ago.strftime (conf.date_format),
+            "day_60_ago": sixty_days_ago.strftime (conf.date_format),
+            'total_sub_count': len (users_df [users_df ['status'] == UserStatus.SUB.value]),
+            'new_followers': len (new_users_30),
+            'renewed_followers': len (renewed_users_30),
+            'kick_users_count': len (kick_users_30),
+            'percent_unsubscribers': round (percent_unsubscribed, 2),
+            'percent_new_subscribers': round (percent_new_subscribers, 2),
+            'percent_renewed_followers': round (percent_renewed_subscribers, 2),
+            'medium': medium,
+            'percent_pay_users': percent_pay_users
+        }
+
+    except:
+        return {
+            'today': today.strftime(conf.date_format),
+            "day_30_ago": thirty_days_ago.strftime(conf.date_format),
+            "day_60_ago": sixty_days_ago.strftime(conf.date_format),
+            'total_sub_count': 0,
+            'new_followers': 0,
+            'renewed_followers': 0,
+            'kick_users_count': 0,
+            'percent_unsubscribers': 0,
+            'percent_new_subscribers': 0,
+            'percent_renewed_followers': 0,
+            'medium': 0,
+            'percent_pay_users': 0
+        }
 
 
-async def get_statistic_text():
+async def get_statistic_text() -> str:
+    if conf.debug:
+        return 'Тут стата'
     statistic = await get_statistic()
     history_static = await db.get_history_static_data()
 
@@ -93,8 +113,12 @@ async def get_statistic_text():
     medium_mounts, medium_days = months_to_months_and_days(statistic['medium'])
     medium_str = f'{medium_mounts} м. {medium_days} д.'
 
-    medium_mounts_lm, medium_days_lm = months_to_months_and_days (history_static.CTL)
-    medium_lm_str = f'{medium_mounts_lm} м. {medium_days_lm} д.'
+    try:
+        medium_mounts_lm, medium_days_lm = months_to_months_and_days (history_static.CTL)
+        medium_lm_str = f'{medium_mounts_lm} м. {medium_days_lm} д.'
+    except:
+        medium_mounts_lm, medium_days_lm = 0, 0
+        medium_lm_str = f'{medium_mounts_lm} м. {medium_days_lm} д.'
 
     text = f'<b>Панель администратора</b>\n\n' \
            f'<b>📊Статистика.</b>\n\n' \

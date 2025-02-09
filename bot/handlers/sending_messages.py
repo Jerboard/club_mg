@@ -9,6 +9,7 @@ import random
 import logging
 
 import db
+from db.funnel import Funnel
 import keyboards as kb
 from config import conf
 from init import dp, bot
@@ -16,7 +17,8 @@ from utils.message_utils import com_start_admin
 from utils.entities_utils import save_entities, recover_entities
 from utils.datetime_utils import minus_months
 from data.base_data import periods
-from enums import AdminCB, BaseStatus, UserStatus
+import utils as ut
+from enums import AdminCB, BaseStatus, Action
 
 
 # основная функция изменения сообщений
@@ -29,6 +31,9 @@ async def send_messages(state: FSMContext):
     # print(f'--------')
     # for k, v in data.items():
     #     print(f'{k}: {v}')
+
+    # for i in data['entities']:
+    #     print(i)
 
     group_recip = data['group_recip']
     period_id = data['period_id']
@@ -46,7 +51,9 @@ async def send_messages(state: FSMContext):
             message_id=data ['message'],
             text=text,
             entities=data['entities'],
-            reply_markup=markup)
+            reply_markup=markup,
+            parse_mode=None
+        )
 
     else:
         if not data['edit_photo']:
@@ -56,7 +63,8 @@ async def send_messages(state: FSMContext):
                 photo=data['photo'],
                 caption=text,
                 caption_entities=data['entities'],
-                reply_markup=markup
+                reply_markup=markup,
+                parse_mode=None
             )
 
             await state.update_data(data={'chat': sent.chat.id, 'message': sent.message_id, 'edit_photo': True})
@@ -85,7 +93,8 @@ async def send_messages_1(cb: CallbackQuery, state: FSMContext):
         'photo': None,
         'edit': None,
         'edit_photo': None,
-        'save': False
+        'save': False,
+        'save_msg_id': None
     })
 
     await send_messages(state)
@@ -158,93 +167,126 @@ async def send_messages_4(cb: CallbackQuery, state: FSMContext):
     elif not data['period_id']:
         await cb.answer('❗️Вы не выбрали период', show_alert=True)
 
-    elif not data['text']:
+    elif not data['text'] and not data['photo']:
         await cb.answer('❗️Нет сообщения для отправки', show_alert=True)
 
     else:
+
+        # if user_period['unit'] == 'days':
+        #     start = datetime.now(conf.tz) - timedelta(days=user_period['start'])
+        #     end = datetime.now(conf.tz) - timedelta(days=user_period['end'])
+        # else:
+        #     start = minus_months(user_period['start'])
+        #     end = minus_months(user_period['end'])
+        #
+        # if conf.debug:
+        #     users = await db.get_all_users()
+        # else:
+        #     users = await db.get_users_for_message(group=data['group_recip'], start=start, end=end)
+
         user_period = periods[data['period_id']]
+        users = await ut.get_milling_user_list(
+            unit=user_period['unit'],
+            group_recip=data['group_recip'],
+            start=user_period['start'],
+            end=user_period['end']
+        )
 
-        if user_period['unit'] == 'days':
-            start = datetime.now(conf.tz) - timedelta(days=user_period['start'])
-            end = datetime.now(conf.tz) - timedelta(days=user_period['end'])
-        else:
-            start = minus_months(user_period['start'])
-            end = minus_months(user_period['end'])
-
-        users = await db.get_users_for_message(group=data['group_recip'], start=start, end=end)
-        users_ids = [user.user_id for user in users]
-        await state.update_data(data={'users_ids': users_ids})
+        # users_ids = [user.user_id for user in users]
+        # await state.update_data(data={'users_ids': users_ids})
         await cb.message.edit_reply_markup(reply_markup=None)
-        text = f'❕Пользователей получат сообщение {len(users)}\n' \
-               f'Подтвердить?'
+        text = (f'❕Пользователей получат сообщение {len(users)}\n'
+                f'Подтвердить?')
         await cb.message.answer(text, reply_markup=kb.accept_send_message_kb())
 
 
 # сохраняет сообщение
 @dp.callback_query (lambda cb: cb.data.startswith(AdminCB.SEND_MESSAGES_6.value))
 async def send_messages_6(cb: CallbackQuery, state: FSMContext):
-    _, del_message_str = cb.data.split(':')
-    del_message = bool(int(del_message_str))
+    _, action = cb.data.split(':')
     data = await state.get_data()
 
     entities = save_entities(data['entities'])
 
     if not data['save']:
-        title = data['text'][:40]
-        await db.save_message(
-            title=title,
-            text=data['text'],
-            entities=entities,
-            photo_id=data['photo'],
-            group_recip=data['group_recip'],
-            period_id=data['period_id']
-        )
-        await state.update_data(data={'save': True})
+        icon = '🖼' if data['photo'] else ''
+        date = datetime.now().strftime(conf.date_format)
+        title_text = data['text'][:40] if data['text'] else 'Без текста'
+        title = f'{icon} {date} {title_text}'.strip()
 
-    await cb.answer('💾 Сохранено')
+        if data.get('save_msg_id'):
+            await db.update_message(
+                msg_id=data['save_msg_id'],
+                title=title,
+                text=data['text'],
+                entities=entities,
+                photo_id=data['photo']
+            )
+            await state.update_data(data={'save': True})
 
-    if del_message:
+        else:
+            save_msg_id = await db.save_message(
+                title=title,
+                text=data['text'],
+                entities=entities,
+                photo_id=data['photo']
+            )
+            await state.update_data(data={'save': True, 'save_msg_id': save_msg_id})
+
+    if action != Action.FUNNEL.value:
+        await cb.answer('💾 Сохранено', show_alert=True)
+
+    if action == Action.DEL.value:
         await state.clear()
         await cb.message.delete()
         await com_start_admin(cb.from_user.id)
+
+    elif action == Action.FUNNEL.value:
+        data = await state.get_data()
+
+        if not data['group_recip']:
+            await cb.answer('❗️Вы не выбрали группу пользователей', show_alert=True)
+
+        elif not data['period_id']:
+            await cb.answer('❗️Вы не выбрали период', show_alert=True)
+
+        else:
+            await state.clear()
+            if data.get('funnel_id'):
+                funnel_id = data['funnel_id']
+            else:
+                funnel_id = await Funnel.add(
+                    user_id=cb.from_user.id,
+                    save_msg_id=data.get('save_msg_id'),
+                    group_recip=data['group_recip'],
+                    period_id=data['period_id']
+                )
+
+            await ut.get_funnel_view(funnel_id=funnel_id, chat_id=cb.message.chat.id, msg_id=cb.message.message_id)
 
 
 # отправить сообщение
 @dp.callback_query (lambda cb: cb.data.startswith(AdminCB.SEND_MESSAGES_7.value))
 async def send_messages_7(cb: CallbackQuery, state: FSMContext):
-    time_start = datetime.now()
     data = await state.get_data()
     await state.clear()
-    users_ids: list = data.get('users_ids', [])
 
-    counter = 0
-    sent = await cb.message.answer(f'⏳ Отправлено {counter}/{len(users_ids)}')
+    user_period = periods[data['period_id']]
+    users = await ut.get_milling_user_list(
+        unit=user_period['unit'],
+        group_recip=data['group_recip'],
+        start=user_period['start'],
+        end=user_period['end']
+    )
 
-    for user_id in users_ids:
-        try:
-            if not data.get('photo'):
-                await bot.send_message(chat_id=user_id, text=data['text'], reply_markup=kb.del_message_user())
-
-            else:
-                await bot.send_photo(
-                    chat_id=user_id,
-                    photo=data['photo'],
-                    caption=data['text'],
-                    reply_markup=kb.del_message_user())
-            counter += 1
-            # if counter % 100 == 0:
-            if random.randint(1, 50) == 1:
-                await sent.edit_text(f'⏳ Отправлено {counter}/{len(users_ids)}')
-
-        except Exception as ex:
-            pass
-
+    await ut.mailing(
+        chat_id=cb.message.chat.id,
+        users=users,
+        text=data['text'],
+        entities_str=data['entities'],
+        photo=data['photo'],
+    )
     await bot.delete_message(chat_id=data['chat'], message_id=data['message'])
-
-    text = f'✅ {counter} из {len(users_ids)} сообщений успешно отправлено'
-    await sent.edit_text(text)
-    logging.warning(f'Отправил {counter} сообщений за: {datetime.now () - time_start}')
-    # await cb.message.edit_text(text, reply_markup=kb.back_admin_menu_kb())
 
 
 # удалить эскиз
@@ -257,7 +299,7 @@ async def send_messages_4(cb: CallbackQuery, state: FSMContext):
 
 # список сохранённых сообщений
 @dp.callback_query (lambda cb: cb.data.startswith(AdminCB.SAVE_MESSAGES_1.value))
-async def send_messages_4(cb: CallbackQuery, state: FSMContext):
+async def save_messages_1(cb: CallbackQuery, state: FSMContext):
     messages = await db.get_all_save_messages()
 
     if len(messages) == 0:
@@ -268,10 +310,12 @@ async def send_messages_4(cb: CallbackQuery, state: FSMContext):
 
 # обновить сохранённое сообщение
 @dp.callback_query (lambda cb: cb.data.startswith(AdminCB.SAVE_MESSAGES_2.value))
-async def send_messages_4(cb: CallbackQuery, state: FSMContext):
-    _, save_message_id_str = cb.data.split(':')
+async def save_messages_2(cb: CallbackQuery, state: FSMContext):
+    _, save_message_id_str, funnel_id_str = cb.data.split(':')
     save_message_id = int(save_message_id_str)
+    funnel_id = int(funnel_id_str)
     message = await db.get_save_message(save_message_id)
+    funnel = await Funnel.get_by_id(funnel_id)
 
     entities = recover_entities (message.entities)
 
@@ -279,14 +323,16 @@ async def send_messages_4(cb: CallbackQuery, state: FSMContext):
     await state.update_data(data={
         'chat': cb.message.chat.id,
         'message': cb.message.message_id,
-        'group_recip': message.group_recip,
-        "period_id": message.period_id,
+        'group_recip': funnel.group_recip if funnel else None,
+        "period_id": funnel.period_id if funnel else None,
         'text': message.text,
         'entities': entities,
         'photo': message.photo,
         'edit': None,
         'edit_photo': None,
-        'save': False
+        'save': False,
+        'save_msg_id': message.id,
+        'funnel_id': funnel_id
     })
 
     await send_messages(state)

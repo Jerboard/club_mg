@@ -16,6 +16,7 @@ class User(models.Model):
     recurrent = models.BooleanField('Подписка', null=True, blank=True, default=False)
     tariff = models.CharField('Тариф', max_length=30, null=True, blank=True)
     email = models.CharField('Почта', max_length=100, null=True, blank=True)
+    is_blocked = models.BooleanField('Блокировали бот', null=True, blank=True, default=False)
 
     def __str__(self):
        return self.full_name if self.full_name else '-'
@@ -172,3 +173,61 @@ class PhotosTable(models.Model):
         verbose_name_plural = 'Фото'
         db_table = 'photos'
         managed = False
+
+
+class SaveMessages(models.Model):
+    id = models.AutoField(primary_key=True)
+    title = models.CharField(max_length=255)
+    text = models.TextField()
+    entities = models.TextField()
+    photo = models.CharField(max_length=255, blank=True, null=True)
+    # group_recip = models.CharField(max_length=255, blank=True, null=True)
+    # period_id = models.IntegerField()
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        verbose_name = 'Сохранённое сообщение'
+        verbose_name_plural = 'Сохранённые сообщения'
+        db_table = 'save_messages'
+        managed = False
+
+
+class MailJournal(models.Model):
+    id = models.AutoField(primary_key=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+    all_msg = models.IntegerField(verbose_name="Всего сообщений")
+    success = models.IntegerField(verbose_name="Успешно")
+    failed = models.IntegerField(verbose_name="Ошибок")
+    blocked = models.IntegerField(verbose_name="Блокировали бот")
+    unblocked = models.IntegerField(verbose_name="Разблокировали бот")
+    time_mailing = models.DurationField(verbose_name="Время рассылки")
+    report = models.TextField(verbose_name="Отчёт")
+
+    class Meta:
+        db_table = 'mailing_journal'
+        verbose_name = "Журнал рассылки"
+        verbose_name_plural = "Журналы рассылок"
+        managed = False
+
+    def __str__(self):
+        return f"Журнал {self.id} - {self.created_at}"
+
+
+class ErrorJournal(models.Model):
+    id = models.AutoField(primary_key=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+    user_id = models.IntegerField(verbose_name="ID пользователя")
+    error = models.CharField(max_length=255, verbose_name="Ошибка")
+    message = models.TextField(verbose_name="Сообщение")
+    comment = models.CharField(max_length=255, verbose_name="Комментарий")
+
+    class Meta:
+        db_table = 'error_journal'
+        verbose_name = "Журнал ошибок"
+        verbose_name_plural = "Журналы ошибок"
+        managed = False
+
+    def __str__(self):
+        return f"Ошибка {self.id} - {self.created_at}"

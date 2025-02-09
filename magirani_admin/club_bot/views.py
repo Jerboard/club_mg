@@ -1,7 +1,5 @@
-from django.shortcuts import render
 from django.http import HttpRequest, JsonResponse
-from datetime import datetime
-
+from datetime import datetime, timedelta
 import json
 
 from club_bot import bot
@@ -10,6 +8,8 @@ from club_bot.utils import add_months
 from club_bot.enums import RecurrentStatus, PaymentStatus, UserStatus
 from club_bot.bot.base import log_error
 from club_bot.payselection_api import stop_recurrent
+
+
 
 
 # списание обычной оплаты

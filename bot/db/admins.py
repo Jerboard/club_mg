@@ -47,3 +47,5 @@ async def get_admin_ids():
     async with begin_connection() as conn:
         result = await conn.execute(query)
     return result.all()
+
+

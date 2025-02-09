@@ -1,42 +1,22 @@
 from aiogram.types import InputMediaPhoto
 from aiogram.enums.content_type import ContentType
-from aiogram.exceptions import TelegramBadRequest
-from datetime import datetime, date
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
+from dateutil.relativedelta import relativedelta
+from datetime import datetime, timedelta
+
+import random
 
 import db
+from db.funnel import Funnel
+from db.mailing_journal import MailJournal
 import keyboards as kb
 from config import conf
 from init import bot, log_error
-from utils.statistic_utils import get_statistic_text
-from enums import UserStatus
-
-
-# текс приветствия
-def get_hello_text(text_number: int, user_kick_date: date) -> str:
-    data_str = user_kick_date.strftime(conf.date_format)
-    if text_number == 1:
-        text = f'Ты здесь и это значит, что целительное поле УЖЕ работает! ' \
-               f'<b>Сама энергия жизни ведёт тебя в правильное место...💜</b>\n\n' \
-               f'Чтобы присоединиться к клубу нажмите "Перейти к оплате", ' \
-               f'чтобы войти в поле Магирани <i><b>прямо сейчас</b></i>.'
-
-    elif text_number == 2:
-        text = f'Рада снова вас видеть 🌿🔮\n\n' \
-               f'<b>Период вашей подписки в MAGIRANI CLUB закончился.</b>\n\n' \
-               f'Чтобы продлить подписку и быть в поле Магирани, нажмите "Перейти к оплате"👇'
-
-    elif text_number == 3:
-        text = f'<b>✨ У вас оплачен период до {data_str}</b>\n\n' \
-               f'Продление произойдёт автоматически.\n\n' \
-               f'Чтобы получить доступ нажмите "Личный кабинет" и "Перейти в канал".\n' \
-               f'Отказаться от подписки вы сможете в "Личном кабинете"'
-    else:
-        text = f'<b>✨ У вас оплачен период до {data_str}</b>\n\n' \
-               f'Для получения доступа нажмите перейти в канал👇\n\n' \
-               f'Для продления нажмите кнопку "Перейти к оплате" или ' \
-               f'напишите в техподдержку для оплаты альтернативным способом.'
-
-    return text
+from .statistic_utils import get_statistic_text
+from .text_utils import get_hello_text
+from .datetime_utils import get_next_start_date
+from .entities_utils import recover_entities
+from enums import UserStatus, Unit
 
 
 # главный экран пользователя
@@ -140,3 +120,119 @@ async def com_start_admin(user_id):
     text = await get_statistic_text()
     admin = await db.get_admin_info(user_id)
     await bot.send_message(chat_id=user_id, text=text, reply_markup=kb.get_first_admin_kb(admin.only_stat))
+
+
+# возвращает список пользовтаелей
+async def get_milling_user_list(unit: str, group_recip: str, start: int, end: int, ) -> list[db.UserRow]:
+    now = datetime.now(conf.tz)
+    if unit == Unit.DAYS.value:
+        start = now - timedelta(days=start)
+        end = now - timedelta(days=end)
+    else:
+        start = now - relativedelta(months=start)
+        end = now - relativedelta(months=end)
+
+    users = await db.get_users_for_message(group=group_recip, start=start, end=end)
+    return users
+
+
+# рассылает сообщение
+async def mailing(
+        chat_id: int,
+        users: list[db.UserRow],
+        text: str = None,
+        entities_str: str = None,
+        photo: str = None,
+):
+    start_time = datetime.now()
+    counter = 0
+    sent = await bot.send_message(chat_id=chat_id, text=f'⏳ Отправлено {counter}/{len(users)}')
+    entities = recover_entities(entities_str)
+
+    blocked, unblocked = 0, 0
+
+    for user in users:
+        try:
+            if not photo:
+                await bot.send_message(
+                    chat_id=user.user_id,
+                    text=text,
+                    entities=entities,
+                    parse_mode=None,
+                    reply_markup=kb.del_message_user()
+                )
+
+            else:
+                await bot.send_photo(
+                    chat_id=user.user_id,
+                    photo=photo,
+                    caption=text,
+                    caption_entities=entities,
+                    parse_mode=None,
+                    reply_markup=kb.del_message_user())
+            counter += 1
+
+            if user.is_blocked:
+                await db.update_user_info(user_id=user.user_id, is_blocked=False)
+                unblocked += 1
+
+            if random.randint(1, 50) == 1:
+                await sent.edit_text(f'⏳ Отправлено {counter}/{len(users)}')
+
+        except TelegramForbiddenError as ex:
+            if not user.is_blocked:
+                await db.update_user_info(user_id=user.user_id, is_blocked=True)
+                blocked += 1
+
+        except Exception as ex:
+            log_error(ex)
+
+    mailing_time = datetime.now() - start_time
+    text = (
+        f'✅ {counter} из {len(users)} сообщений успешно отправлено за {mailing_time}\n'
+        f'Заблокировали бот: {blocked}\n'
+        f'Разблокировали бот: {unblocked}'
+        )
+    await sent.edit_text(text)
+
+    await MailJournal.add(
+        all_msg=len(users),
+        success=counter,
+        failed=len(users) - counter,
+        blocked=blocked,
+        unblocked=unblocked,
+        time_mailing=mailing_time,
+        report=text
+    )
+
+
+# показывает воронку
+async def get_funnel_view(funnel_id: int, chat_id: int, msg_id: int = None):
+    funnel = await Funnel.get_by_id(funnel_id)
+    entities = recover_entities(funnel.entities)
+
+    next_start = get_next_start_date(next_start_date=funnel.next_start_date, next_start_time=funnel.next_start_time)
+    next_start_str = next_start.strftime(conf.datetime_format)
+
+    text = f'{funnel.text}\n-----\nВремя следующей рассылки: {next_start_str}'.replace('None', '')
+
+    if msg_id:
+        await bot.delete_message(chat_id=chat_id, message_id=msg_id)
+
+    if funnel.photo:
+        await bot.send_photo(
+            chat_id=chat_id,
+            photo=funnel.photo,
+            caption=text,
+            caption_entities=entities,
+            parse_mode=None,
+            reply_markup=kb.get_funnel_edit_kb(funnel)
+        )
+    else:
+        await bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            entities=entities,
+            parse_mode=None,
+            reply_markup=kb.get_funnel_edit_kb(funnel)
+        )

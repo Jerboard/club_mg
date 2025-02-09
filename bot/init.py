@@ -4,6 +4,8 @@ from aiogram import Bot
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
+from apscheduler.jobstores.redis import RedisJobStore
+from apscheduler.executors.asyncio import AsyncIOExecutor
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from yookassa import Configuration
 
@@ -11,6 +13,7 @@ from datetime import datetime
 
 import logging
 import traceback
+import redis
 import os
 import re
 
@@ -29,7 +32,22 @@ loop = asyncio.get_event_loop()
 dp = Dispatcher()
 bot = Bot(conf.token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
-scheduler = AsyncIOScheduler(timezone=conf.tz)
+# Настройка Redis
+redis_client = redis.StrictRedis(host=conf.redis_host, port=conf.redis_port, db=0)
+
+scheduler = AsyncIOScheduler(
+    timezone=conf.tz,
+    jobstores={
+        'default': RedisJobStore(host=conf.redis_host, port=conf.redis_port, db=1)
+    },
+    executors={
+        'default': AsyncIOExecutor()
+    },
+    job_defaults={
+        'coalesce': True,
+        'max_instances': 3
+    }
+)
 
 ENGINE = create_async_engine(url=conf.db_url)
 
@@ -46,7 +64,7 @@ async def set_main_menu():
     await bot.set_my_commands(main_menu_commands)
 
 
-def log_error(message, with_traceback: bool = True):
+def log_error(message, with_traceback: bool = True) -> tuple[str, str]:
     now = datetime.now(conf.tz)
     log_folder = now.strftime ('%m-%Y')
     log_path = os.path.join('logs', log_folder)
@@ -60,7 +78,7 @@ def log_error(message, with_traceback: bool = True):
         ex_traceback = traceback.format_exc()
         tb = ''
         msg = ''
-        start_row = '  File'
+        start_row = '  File "/app'
         tb_split = ex_traceback.split('\n')
         for row in tb_split:
             if row.startswith(start_row) and not re.search ('venv', row):
@@ -70,6 +88,8 @@ def log_error(message, with_traceback: bool = True):
                 msg += f'{row}\n'
 
         logging.warning(f'{now}\n{tb}\n\n{msg}\n---------------------------------\n')
-        return msg
+        return tb, msg
     else:
         logging.warning(f'{now}\n{message}\n\n---------------------------------\n')
+        return message
+

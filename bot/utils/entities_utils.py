@@ -5,36 +5,41 @@ import json
 
 
 # подготавливает сущности к сохранению (превращает в список строк)
-def save_entities(entities: t.Optional[list[MessageEntity]]) -> list[str]:
+# type='bold' offset=58 length=53 url=None user=None language=None custom_emoji_id=None (30.01.2025)
+def save_entities(entities: t.Optional[list[MessageEntity]]) -> str:
     entities_list = []
     if entities:
         for entity in entities:
             entities_list.append (
-                json.dumps (
-                    {'type': entity.type,
-                     'offset': entity.offset,
-                     'length': entity.length,
-                     'url': entity.url,
-                     'user': entity.user,
-                     'language': entity.language,
-                     'custom_emoji_id': entity.custom_emoji_id}
-                )
+                {
+                    'type': entity.type,
+                    'offset': entity.offset,
+                    'length': entity.length,
+                    'url': entity.url,
+                    'user': entity.user,
+                    'language': entity.language,
+                    'custom_emoji_id': entity.custom_emoji_id
+                }
             )
-    return entities_list
+    return json.dumps(entities_list)
 
 
 # восстанавливает сущности
-def recover_entities(entities: t.Optional[list[str]]) -> list[MessageEntity]:
+def recover_entities(entities_str: t.Optional[str]) -> list[MessageEntity]:
+    if not entities_str:
+        return []
+
     entities_list = []
+    entities: list[dict] = json.loads(entities_str)
     if entities:
         for entity in entities:
-            entity_dict = json.loads(entity)
-            entities_list.append(MessageEntity(
-                type=entity_dict['type'],
-                offset=entity_dict['offset'],
-                length=entity_dict['length'],
-                url=entity_dict['url'],
-                user=entity_dict['user'],
-                language=entity_dict['language'],
-            ))
+            entities_list.append(
+                MessageEntity(
+                    type=entity['type'],
+                    offset=entity['offset'],
+                    length=entity['length'],
+                    url=entity['url'],
+                    user=entity['user'],
+                    language=entity['language'],
+                ))
     return entities_list

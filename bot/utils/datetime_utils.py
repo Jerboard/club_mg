@@ -1,5 +1,7 @@
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta, datetime, time
 from dateutil.relativedelta import relativedelta
+
+import typing as t
 
 from config import conf
 
@@ -59,3 +61,8 @@ def months_to_months_and_days(total_months):
     remaining_days = round((total_months % 1) * 30)  # Оставшиеся дни, округленные до ближайшего целого
 
     return int(months), remaining_days
+
+
+# определяет следующую дату старта
+def get_next_start_date(next_start_date: date, next_start_time: time) -> datetime:
+    return datetime.combine(next_start_date, next_start_time, tzinfo=conf.tz)

@@ -1,14 +1,15 @@
 import os
 
-from pytz import timezone
+from zoneinfo import ZoneInfo
 
 
-class Config():
+class Config:
     debug = bool(int(os.getenv('DEBUG')))
 
     if debug:
         token = os.getenv("TEST_TOKEN")
         db_host = os.getenv('DB_HOST')
+        # db_host = os.getenv('DB_HOST_REMOVE')
     else:
         token = os.getenv("TOKEN")
         db_host = os.getenv('DB_HOST_LOCAL')
@@ -18,8 +19,12 @@ class Config():
     db_user = os.getenv('POSTGRES_USER')
     db_password = os.getenv('POSTGRES_PASSWORD')
     db_url = f'postgresql+asyncpg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}'
+
+    redis_host = os.getenv('REDIS_HOST')
+    redis_port = os.getenv('REDIS_PORT')
     
-    tz = timezone('Europe/Moscow')
+    tz = ZoneInfo('Europe/Moscow')
+    tz_utc = ZoneInfo('UTC')
 
     bot_name = os.getenv('BOT_NAME')
     support_chat_id = int(os.getenv('SUPPORT_CHAT_ID'))

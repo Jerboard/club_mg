@@ -6,7 +6,6 @@ from datetime import date, datetime
 
 from config import conf
 from db.base import METADATA, begin_connection
-from utils.datetime_utils import minus_months
 from enums import UserStatus
 
 
@@ -23,6 +22,7 @@ class UserRow(t.Protocol):
     recurrent: bool
     tariff: str
     email: str
+    is_blocked: bool
 
 
 UserTable = sa.Table(
@@ -40,6 +40,7 @@ UserTable = sa.Table(
     sa.Column('recurrent', sa.Boolean, default=False),
     sa.Column('tariff', sa.String(255)),
     sa.Column('email', sa.String(255)),
+    sa.Column('is_blocked', sa.Boolean, default=False),
 )
 
 
@@ -92,6 +93,7 @@ async def update_user_info(
         kick_date: date = None,
         last_pay_id: str = None,
         alarm_2_day: bool = None,
+        is_blocked: bool = None,
         tariff: str = None,
 ) -> None:
     query = UserTable.update ().where(UserTable.c.user_id == user_id)
@@ -114,6 +116,8 @@ async def update_user_info(
         query = query.values(tariff=tariff)
     if alarm_2_day is not None:
         query = query.values (alarm_2_day=alarm_2_day)
+    if is_blocked is not None:
+        query = query.values (is_blocked=is_blocked)
 
     async with begin_connection () as conn:
         await conn.execute (query)

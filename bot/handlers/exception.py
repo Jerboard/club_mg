@@ -1,18 +1,18 @@
 from aiogram.types import ErrorEvent, Message
 
+from db.error_journal import ErrorJournal
 from init import dp, bot, log_error
 from config import conf
 
 
-if not conf.debug:
-    @dp.errors()
-    async def error_handler(ex: ErrorEvent):
-        log_error (ex)
-        # if ex.update.message:
-        #     log_error (ex.exception)
-        #
-        #     text = 'Перезапустите сессию /start'
-        #     await bot.send_message(chat_id=ex.update.message.chat.id, text=text)
-        #
-        # else:
-        #     log_error(ex.exception)
+# if not conf.debug:
+@dp.errors()
+async def error_handler(ex: ErrorEvent):
+    tb, msg = log_error (ex)
+    user_id = ex.update.message.from_user.id if ex.update.message else None
+
+    await ErrorJournal.add(
+        error=msg.replace('Traceback (most recent call last):', '').strip(),
+        message=tb,
+        user_id=user_id
+    )

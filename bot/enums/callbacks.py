@@ -32,3 +32,12 @@ class UserCB(str, enum.Enum):
     SUPPORT_1 = 'support_1'
     MY_ACCOUNT = 'my_account'
     UNSUBSCRIBE = 'unsubscribe'
+
+
+class FunnelCB(str, enum.Enum):
+    MENU = 'funnel_menu'
+    CREATE = 'funnel_create'
+    VIEW = 'funnel_view'
+    EDIT = 'funnel_edit'
+    SEND = 'funnel_send'
+

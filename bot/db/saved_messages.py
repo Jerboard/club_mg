@@ -7,10 +7,10 @@ class SaveMessagesRow(t.Protocol):
     id: int
     title: str
     text: str
-    entities: list
+    entities: str
     photo: str
-    group_recip: str
-    period_id: int
+    # group_recip: str
+    # period_id: int
 
 
 SaveMessagesTable = sa.Table(
@@ -19,23 +19,45 @@ SaveMessagesTable = sa.Table(
     sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
     sa.Column('title', sa.String(255)),
     sa.Column('text', sa.Text),
-    sa.Column('entities', sa.ARRAY(sa.String)),
+    # sa.Column('entities', sa.ARRAY(sa.String)),
+    sa.Column('entities', sa.Text),
     sa.Column('photo', sa.String(255)),
-    sa.Column('group_recip', sa.String(50)),
-    sa.Column('period_id', sa.Integer),
 )
 
 
 # сохранить сообщение
-async def save_message(title: str, text: str, entities: list, photo_id: str, group_recip: str, period_id: int) -> None:
+async def save_message(title: str, text: str, entities: str, photo_id: str) -> int:
     query = SaveMessagesTable.insert ().values (
         title=title,
         text=text,
         entities=entities,
         photo=photo_id,
-        group_recip=group_recip,
-        period_id=period_id,
     )
+    async with begin_connection () as conn:
+        result = await conn.execute (query)
+
+    return result.inserted_primary_key[0]
+
+
+# сохранить сообщение
+async def update_message(
+        msg_id: int,
+        title: str = None,
+        text: str = None,
+        entities: str = None,
+        photo_id: str = None
+) -> None:
+    query = SaveMessagesTable.update ().where(SaveMessagesTable.c.id == msg_id)
+
+    if title:
+        query = query.values (title=title)
+    if text:
+        query = query.values (text=text)
+    if entities:
+        query = query.values (entities=entities)
+    if photo_id:
+        query = query.values (photo=photo_id)
+
     async with begin_connection () as conn:
         await conn.execute (query)
 

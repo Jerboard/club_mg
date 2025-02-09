@@ -1,3 +1,4 @@
+from enums import Unit
 
 
 periods = {
@@ -8,4 +9,10 @@ periods = {
     5: {'name': '3 - 6 месяцев', 'start': 6, 'end': 3, 'unit': 'mounts'},
     6: {'name': 'Более 6 месяцев', 'start': 120, 'end': 6, 'unit': 'mounts'},
     7: {'name': 'Все периоды', 'start': 120, 'end': 0, 'unit': 'mounts'}
+}
+
+
+groups_users = {
+    0: '️Гости',
+    1: 'Без доступа',
 }
