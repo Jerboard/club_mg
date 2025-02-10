@@ -218,8 +218,8 @@ class MailJournal(models.Model):
 class ErrorJournal(models.Model):
     id = models.AutoField(primary_key=True)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
-    # user_id = models.IntegerField(verbose_name="ID пользователя")
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, verbose_name="ID пользователя")
+    user_id = models.IntegerField(verbose_name="ID пользователя")
+    # user = models.ForeignKey(User, on_delete=models.SET_NULL, verbose_name="ID пользователя")
     error = models.CharField(max_length=255, verbose_name="Ошибка")
     message = models.TextField(verbose_name="Сообщение")
     comment = models.CharField(max_length=255, verbose_name="Комментарий")
