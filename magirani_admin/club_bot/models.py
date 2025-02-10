@@ -218,7 +218,8 @@ class MailJournal(models.Model):
 class ErrorJournal(models.Model):
     id = models.AutoField(primary_key=True)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
-    user_id = models.IntegerField(verbose_name="ID пользователя")
+    # user_id = models.IntegerField(verbose_name="ID пользователя")
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, verbose_name="ID пользователя")
     error = models.CharField(max_length=255, verbose_name="Ошибка")
     message = models.TextField(verbose_name="Сообщение")
     comment = models.CharField(max_length=255, verbose_name="Комментарий")
@@ -231,3 +232,28 @@ class ErrorJournal(models.Model):
 
     def __str__(self):
         return f"Ошибка {self.id} - {self.created_at}"
+
+
+class Funnel(models.Model):
+    id = models.AutoField(primary_key=True, verbose_name="ID")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
+    next_start_date = models.DateField(null=True, blank=True, verbose_name="Дата следующего старта")
+    next_start_time = models.TimeField(null=True, blank=True, verbose_name="Время следующего старта")
+    save_msg_id = models.IntegerField(null=True, blank=True, verbose_name="ID сохранённого сообщения")
+    # save_msg = models.ForeignKey(SaveMessages, on_delete=models.SET_NULL, verbose_name="Сообщение")
+    user_id = models.IntegerField(null=True, blank=True, verbose_name="ID пользователя")
+    period_day = models.IntegerField(default=0, verbose_name="Периодичность в днях")
+    group_recip = models.CharField(max_length=255, verbose_name="Группа получателей")
+    period_id = models.IntegerField(null=True, blank=True, verbose_name="ID периода")
+    is_active = models.BooleanField(default=False, verbose_name="Активна")
+
+    class Meta:
+        verbose_name = "Воронка"
+        verbose_name_plural = "Воронки"
+        db_table = "funnel"
+        managed = False
+
+    def __str__(self):
+        return f"Воронка #{self.id}"
+

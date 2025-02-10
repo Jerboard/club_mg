@@ -13,7 +13,8 @@ from .models import (
     PaymentPS,
     SaveMessages,
     MailJournal,
-    ErrorJournal
+    ErrorJournal,
+    Funnel,
 )
 
 
@@ -134,14 +135,15 @@ class Veiw_Admin_Table(ModelAdmin):
 
 @admin.register(SaveMessages)
 class SaveMessagesAdmin(ModelAdmin):
-    list_display = ('id', 'title')
+    list_display = ('title',)
+    readonly_fields = ('entities',)
     search_fields = ('title', 'text')
     ordering = ('-id',)
 
 
 @admin.register(MailJournal)
 class MailJournalAdmin(ModelAdmin):
-    list_display = ('id', 'created_at', 'all_msg', 'success', 'failed', 'blocked', 'unblocked', 'time_mailing')
+    list_display = ('created_at', 'all_msg', 'success', 'failed', 'blocked', 'unblocked', 'time_mailing')
     readonly_fields = ('id', 'created_at', 'all_msg', 'success', 'failed', 'blocked', 'unblocked', 'time_mailing', 'report')
     ordering = ('-id',)
 
@@ -173,3 +175,20 @@ class ErrorJournalAdmin(ModelAdmin):
 
     user_full_name.short_description = 'Пользователь'
 
+
+@admin.register(Funnel)
+class FunnelAdmin(admin.ModelAdmin):
+    list_display = ('next_start_date', 'next_start_time', 'next_start_date', 'next_start_time', 'is_active')
+    list_filter = ('is_active', 'next_start_date')
+    search_fields = ('id', 'group_recip', 'user_id', 'period_id')
+    readonly_fields = ('created_at', 'updated_at')
+
+    fieldsets = (
+        (None, {
+            'fields': ('next_start_date', 'next_start_time', 'period_day', 'group_recip', 'is_active')
+        }),
+        ('Дополнительные настройки', {
+            'classes': ('collapse',),
+            'fields': ('save_msg_id', 'user_id', 'period_id')
+        }),
+    )
