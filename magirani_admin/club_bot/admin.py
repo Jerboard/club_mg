@@ -14,7 +14,7 @@ from .models import (
     SaveMessages,
     MailJournal,
     ErrorJournal,
-    Funnel,
+    # Funnel,
 )
 
 
@@ -176,19 +176,19 @@ class ErrorJournalAdmin(ModelAdmin):
     user_full_name.short_description = 'Пользователь'
 
 
-@admin.register(Funnel)
-class FunnelAdmin(admin.ModelAdmin):
-    list_display = ('next_start_date', 'next_start_time', 'next_start_date', 'next_start_time', 'is_active')
-    list_filter = ('is_active', 'next_start_date')
-    search_fields = ('id', 'group_recip', 'user_id', 'period_id')
-    readonly_fields = ('created_at', 'updated_at')
-
-    fieldsets = (
-        (None, {
-            'fields': ('next_start_date', 'next_start_time', 'period_day', 'group_recip', 'is_active')
-        }),
-        ('Дополнительные настройки', {
-            'classes': ('collapse',),
-            'fields': ('save_msg_id', 'user_id', 'period_id')
-        }),
-    )
+# @admin.register(Funnel)
+# class FunnelAdmin(admin.ModelAdmin):
+#     list_display = ('next_start_date', 'next_start_time', 'next_start_date', 'next_start_time', 'is_active')
+#     list_filter = ('is_active', 'next_start_date')
+#     search_fields = ('id', 'group_recip', 'user_id', 'period_id')
+#     readonly_fields = ('created_at', 'updated_at')
+#
+#     fieldsets = (
+#         (None, {
+#             'fields': ('next_start_date', 'next_start_time', 'period_day', 'group_recip', 'is_active')
+#         }),
+#         ('Дополнительные настройки', {
+#             'classes': ('collapse',),
+#             'fields': ('save_msg_id', 'user_id', 'period_id')
+#         }),
+#     )
