@@ -14,7 +14,7 @@ from .models import (
     SaveMessages,
     MailJournal,
     ErrorJournal,
-    # Funnel,
+    Funnel,
 )
 
 
@@ -22,7 +22,7 @@ from .models import (
 class Veiw_Admin_Table(ModelAdmin):
     list_display = ['user_id', 'full_name', 'username',  'status', 'kick_date', 'last_payment_datetime',
                     'recurrent', 'tariff', 'email']
-    search_fields = ['user_id', 'username', 'email']
+    search_fields = ['user', 'username', 'email']
     list_filter = ('status',)
 
     def last_payment_datetime(self, odj):
@@ -154,8 +154,9 @@ class MailJournalAdmin(ModelAdmin):
 
 @admin.register(ErrorJournal)
 class ErrorJournalAdmin(ModelAdmin):
-    list_display = ('created_at', 'user_full_name', 'error', 'message', 'comment')
+    list_display = ('created_at', 'user_id', 'error', 'message', 'comment')
     readonly_fields = ('id', 'created_at', 'user_id', 'error', 'message')
+    # readonly_fields = ('id', 'created_at', 'error', 'message')
     list_editable = ('comment',)
     ordering = ('-id',)
 
@@ -176,19 +177,31 @@ class ErrorJournalAdmin(ModelAdmin):
     user_full_name.short_description = 'Пользователь'
 
 
-# @admin.register(Funnel)
-# class FunnelAdmin(admin.ModelAdmin):
-#     list_display = ('next_start_date', 'next_start_time', 'next_start_date', 'next_start_time', 'is_active')
-#     list_filter = ('is_active', 'next_start_date')
-#     search_fields = ('id', 'group_recip', 'user_id', 'period_id')
-#     readonly_fields = ('created_at', 'updated_at')
-#
-#     fieldsets = (
-#         (None, {
-#             'fields': ('next_start_date', 'next_start_time', 'period_day', 'group_recip', 'is_active')
-#         }),
-#         ('Дополнительные настройки', {
-#             'classes': ('collapse',),
-#             'fields': ('save_msg_id', 'user_id', 'period_id')
-#         }),
-#     )
+@admin.register(Funnel)
+class FunnelAdmin(ModelAdmin):
+    list_display = ('user_full_name', 'next_start_date', 'next_start_time', 'next_start_date', 'next_start_time', 'is_active')
+    list_filter = ('is_active', 'next_start_date')
+    search_fields = ('id', 'group_recip', 'user_id', 'period_id')
+    readonly_fields = ('created_at', 'updated_at')
+
+    fieldsets = (
+        (None, {
+            'fields': ('next_start_date', 'next_start_time', 'period_day', 'group_recip', 'is_active')
+        }),
+        ('Дополнительные настройки', {
+            'classes': ('collapse',),
+            'fields': ('save_msg', 'user_id', 'period_id')
+        }),
+    )
+
+    def user_full_name(self, obj):
+        user = User.objects.filter(user_id=obj.user_id).first()
+        if not user:
+            return '-'
+        full_name = user.full_name.strip() if user.full_name else None
+        if full_name:
+            return full_name
+        else:
+            return str(obj.user_id)
+
+    user_full_name.short_description = 'Пользователь'
