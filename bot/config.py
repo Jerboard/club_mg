@@ -12,7 +12,7 @@ class Config:
         # db_host = os.getenv('DB_HOST_REMOVE')
     else:
         token = os.getenv("TOKEN")
-        db_host = os.getenv('DB_HOST_LOCAL')
+        db_host = os.getenv('DB_HOST_REMOVE')
         
     db_port = os.getenv('DB_PORT')
     db_name = os.getenv('POSTGRES_DB')
