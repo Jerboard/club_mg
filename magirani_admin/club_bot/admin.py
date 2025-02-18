@@ -1,6 +1,8 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
+from django.utils.html import format_html
 
+import redis
 
 from .models import (
     User,
@@ -179,10 +181,10 @@ class ErrorJournalAdmin(ModelAdmin):
 
 @admin.register(Funnel)
 class FunnelAdmin(ModelAdmin):
-    list_display = ('user_full_name', 'next_start_date', 'next_start_time', 'next_start_date', 'next_start_time', 'is_active')
+    list_display = ('user_full_name', 'next_start_date', 'next_start_time', 'is_active')
     list_filter = ('is_active', 'next_start_date')
     search_fields = ('id', 'group_recip', 'user_id', 'period_id')
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'next_start_date', 'next_start_time', 'period_day')
 
     fieldsets = (
         (None, {

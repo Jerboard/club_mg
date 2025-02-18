@@ -1,5 +1,6 @@
-from init import scheduler, log_error
+from init import scheduler, log_error, redis_client_1
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime, timedelta, date, time
 from random import randint
 
@@ -15,10 +16,28 @@ from .message_utils import get_milling_user_list, mailing
 
 # Запуск шедулеров
 async def scheduler_start():
-    if not conf.debug:
-        scheduler.add_job(check_sub, "cron", hour=21)
-        scheduler.add_job(add_statistic_history, "cron", hour=00)
-        scheduler.add_job(check_pay_yoo, "interval", seconds=10)
+    # if not conf.debug:
+    scheduler.add_job(
+        check_sub,
+        CronTrigger(hour=21),
+        id='check_sub',
+        replace_existing=True
+    )
+    scheduler.add_job(
+        add_statistic_history,
+        CronTrigger(hour=0),
+        id='add_statistic_history',
+        replace_existing=True
+    )
+    scheduler.add_job(
+        check_pay_yoo,
+        IntervalTrigger(seconds=10),
+        id='check_pay_yoo',
+        replace_existing=True
+    )
+
+    await check_redis_keys()
+
     scheduler.start()
 
 
@@ -82,3 +101,48 @@ async def del_funnel_job(funnel_id: int):
         #     scheduler.remove_job(job_id=j.id)
     except:
         pass
+
+
+# проверяет ключи
+async def check_redis_keys():
+    print('🔍 Ключи в Redis (db=1):')
+    keys_tts = redis_client_1.keys("*")
+
+    for key in keys_tts:
+        key = key.decode()  # Декодируем ключ в строку
+        key_type = redis_client_1.type(key).decode()  # Определяем тип ключа
+        print(f"\n🔹 Ключ: {key} (Тип: {key_type})")
+
+        if key_type == "string":
+            value = redis_client_1.get(key).decode()
+            print(f"📜 Значение (string): {value}")
+
+        elif key_type == "hash":
+            value = redis_client_1.hgetall(key)
+            decoded_value = {}
+            for k, v in value.items():
+                try:
+                    decoded_value[k.decode()] = v.decode()
+                except UnicodeDecodeError:
+                    decoded_value[k.decode()] = 'v'  # Оставляем в байтах
+            print(f"📦 Значение (hash): {decoded_value}")
+
+        elif key_type == "list":
+            value = [v.decode() for v in redis_client_1.lrange(key, 0, -1)]
+            print(f"📋 Значение (list): {value}")
+
+        elif key_type == "set":
+            value = {v.decode() for v in redis_client_1.smembers(key)}
+            print(f"🔢 Значение (set): {value}")
+
+        elif key_type == "zset":
+            for v, score in redis_client_1.zrange(key, 0, -1, withscores=True):
+                try:
+                    values = v.decode(), datetime.fromtimestamp(score, conf.tz).strftime(conf.datetime_format)
+                except:
+                    values = v.decode(), score
+
+                print(f"🏆 Значение: {values}")
+
+        else:
+            print("⚠️ Неизвестный тип данных, попробуйте исследовать вручную.")

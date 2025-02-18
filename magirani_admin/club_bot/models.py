@@ -256,4 +256,3 @@ class Funnel(models.Model):
 
     def __str__(self):
         return f"Воронка #{self.id}"
-

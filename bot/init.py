@@ -11,6 +11,7 @@ from yookassa import Configuration
 
 from datetime import datetime
 
+import asyncio
 import logging
 import traceback
 import redis
@@ -35,6 +36,7 @@ bot = Bot(conf.token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 # Настройка Redis
 redis_client = redis.StrictRedis(host=conf.redis_host, port=conf.redis_port, db=0)
 
+
 scheduler = AsyncIOScheduler(
     timezone=conf.tz,
     jobstores={
@@ -48,6 +50,9 @@ scheduler = AsyncIOScheduler(
         'max_instances': 3
     }
 )
+
+redis_client_1 = redis.StrictRedis(host=conf.redis_host, port=conf.redis_port, db=1)
+
 
 ENGINE = create_async_engine(url=conf.db_url)
 

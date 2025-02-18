@@ -11,11 +11,19 @@ from config import conf
 from init import bot, log_error
 from utils.users_utils import ban_user
 from utils.datetime_utils import add_months
+from .redis_utils import set_start_recurrent, is_start_recurrent_set
 from enums import UserStatus
 
 
 # проверка подписки автоплатежа
 async def check_sub():
+    # проверяем запускался ли реккурент
+    if is_start_recurrent_set():
+        return False
+
+    # записываем запуск реккурента
+    set_start_recurrent()
+
     today = datetime.now(conf.tz).date()
     next_kick_data = today + timedelta(days=2)
     users = await db.get_all_users(status=UserStatus.SUB.value, target_date=next_kick_data)
