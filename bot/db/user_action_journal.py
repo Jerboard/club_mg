@@ -29,7 +29,8 @@ UserActionJournalTable = sa.Table(
 
 async def reg_action(user_id: int, status: str, action: str, comment: str = None) -> None:
     query = UserActionJournalTable.insert ().values (
-        time=datetime.now(conf.tz),
+        # time=datetime.now(conf.tz),
+        time=datetime.now(),
         user_id=user_id,
         status=status,
         action=action,
