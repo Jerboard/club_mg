@@ -38,7 +38,7 @@ redis_client = redis.StrictRedis(host=conf.redis_host, port=conf.redis_port, db=
 
 
 scheduler = AsyncIOScheduler(
-    timezone=conf.tz,
+    timezone=conf.tz_utc,
     jobstores={
         'default': RedisJobStore(host=conf.redis_host, port=conf.redis_port, db=1)
     },

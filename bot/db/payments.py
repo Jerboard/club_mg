@@ -31,7 +31,7 @@ PaymentTable = sa.Table(
 async def save_bill(user_id: int, total_amount: int, payment_id: str) -> None:
     query = PaymentTable.insert ().values(
         user_id=user_id,
-        date=datetime.now(conf.tz).replace(microsecond=0),
+        date=datetime.now().replace(microsecond=0),
         total_amount=total_amount,
         tg_payment_id=payment_id)
     async with begin_connection () as conn:

@@ -17,8 +17,9 @@ from enums import UserStatus
 
 # проверка подписки автоплатежа
 async def check_sub():
+    log_error('>>>>>>>>>>>>>>>>>>>>>. check_sub', with_traceback=False)
     # проверяем запускался ли реккурент
-    if is_start_recurrent_set():
+    if is_start_recurrent_set() or conf.debug:
         return False
 
     # записываем запуск реккурента

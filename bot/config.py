@@ -8,8 +8,8 @@ class Config:
 
     if debug:
         token = os.getenv("TEST_TOKEN")
-        db_host = os.getenv('DB_HOST')
-        # db_host = os.getenv('DB_HOST_REMOVE')
+        # db_host = os.getenv('DB_HOST')
+        db_host = os.getenv('DB_HOST_REMOVE')
     else:
         token = os.getenv("TOKEN")
         db_host = os.getenv('DB_HOST_REMOVE')

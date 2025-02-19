@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 import db
 from config import conf
+from init import log_error
 from utils.datetime_utils import months_to_months_and_days
 from enums import UserStatus
 
@@ -18,7 +19,7 @@ async def get_statistic():
     try:
         users = await db.get_all_users ()
         columns = ['id', 'user_id', 'full_name', 'username', 'first_visit', 'status', 'kick_date', 'alarm_2_day',
-                   'last_pay_id', 'recurrent', 'tariff', 'email']
+                   'last_pay_id', 'recurrent', 'tariff', 'email', 'is_blocked']
         users_df = pd.DataFrame (users, columns=columns)
         users_df = users_df.set_index ('id')
         paid_users_df = users_df[users_df['status'] != UserStatus.NEW.value]
@@ -83,7 +84,8 @@ async def get_statistic():
             'percent_pay_users': percent_pay_users
         }
 
-    except:
+    except Exception as ex:
+        log_error(ex)
         return {
             'today': today.strftime(conf.date_format),
             "day_30_ago": thirty_days_ago.strftime(conf.date_format),
@@ -100,9 +102,10 @@ async def get_statistic():
         }
 
 
+
 async def get_statistic_text() -> str:
-    if conf.debug:
-        return 'Тут стата'
+    # if conf.debug:
+    #     return 'Тут стата'
     statistic = await get_statistic()
     history_static = await db.get_history_static_data()
 

@@ -1,8 +1,12 @@
 from init import scheduler, log_error, redis_client_1
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
-from datetime import datetime, timedelta, date, time
+from datetime import datetime, timedelta, date, time, timezone
 from random import randint
+
+import logging
+import pickle
+
 
 from config import conf
 import db
@@ -12,33 +16,42 @@ from .pay_utils import check_sub, check_pay_yoo
 from .statistic_utils import add_statistic_history
 from .datetime_utils import get_next_start_date
 from .message_utils import get_milling_user_list, mailing
+from enums import JobName, job_name_list
 
 
 # Запуск шедулеров
 async def scheduler_start():
-    # if not conf.debug:
-    scheduler.add_job(
-        check_sub,
-        CronTrigger(hour=21),
-        id='check_sub',
-        replace_existing=True
-    )
-    scheduler.add_job(
-        add_statistic_history,
-        CronTrigger(hour=0),
-        id='add_statistic_history',
-        replace_existing=True
-    )
-    scheduler.add_job(
-        check_pay_yoo,
-        IntervalTrigger(seconds=10),
-        id='check_pay_yoo',
-        replace_existing=True
-    )
-
-    await check_redis_keys()
+    if not conf.debug:
+        scheduler.add_job(
+            check_sub,
+            CronTrigger(hour=18),
+            id=JobName.CHECK_SUB.value,
+            replace_existing=True
+        )
+        scheduler.add_job(
+            add_statistic_history,
+            CronTrigger(hour=21),
+            id=JobName.ADD_STATISTIC.value,
+            replace_existing=True
+        )
+        scheduler.add_job(
+            check_pay_yoo,
+            IntervalTrigger(seconds=10),
+            id=JobName.CHECK_PAY_YOO.value,
+            replace_existing=True
+        )
 
     scheduler.start()
+    get_scheduled_jobs()
+
+
+# останавливает планировщики
+async def scheduler_stop():
+    for job in job_name_list:
+        try:
+            scheduler.remove_job(job)
+        except Exception as ex:
+            pass
 
 
 async def funnel_malling(funnel_id: int):
@@ -103,50 +116,35 @@ async def del_funnel_job(funnel_id: int):
         pass
 
 
-# проверяет ключи
-async def check_redis_keys():
-    try:
-        print('🔍 Ключи в Redis (db=1):')
-        keys_tts = redis_client_1.keys("*")
+def get_scheduled_jobs():
+    """Получает все задачи APScheduler из Redis и выводит их время выполнения в UTC."""
+    jobs = redis_client_1.hgetall("apscheduler.jobs")
 
-        for key in keys_tts:
-            key = key.decode()  # Декодируем ключ в строку
-            key_type = redis_client_1.type(key).decode()  # Определяем тип ключа
-            print(f"\n🔹 Ключ: {key} (Тип: {key_type})")
+    if not jobs:
+        text = "⛔ В Redis нет задач APScheduler."
+        log_error(text, with_traceback=False)
+        return
 
-            if key_type == "string":
-                value = redis_client_1.get(key).decode()
-                print(f"📜 Значение (string): {value}")
+    text = "📅 Запланированные задачи в UTC:\n"
+    for job_id, job_data in jobs.items():
+        try:
+            job = pickle.loads(job_data)  # Десериализация данных
+            job_next_run = job.get("next_run_time")  # Дата следующего выполнения
 
-            elif key_type == "hash":
-                value = redis_client_1.hgetall(key)
-                decoded_value = {}
-                for k, v in value.items():
-                    try:
-                        decoded_value[k.decode()] = v.decode()
-                    except UnicodeDecodeError:
-                        decoded_value[k.decode()] = 'v'  # Оставляем в байтах
-                print(f"📦 Значение (hash): {decoded_value}")
-
-            elif key_type == "list":
-                value = [v.decode() for v in redis_client_1.lrange(key, 0, -1)]
-                print(f"📋 Значение (list): {value}")
-
-            elif key_type == "set":
-                value = {v.decode() for v in redis_client_1.smembers(key)}
-                print(f"🔢 Значение (set): {value}")
-
-            elif key_type == "zset":
-                for v, score in redis_client_1.zrange(key, 0, -1, withscores=True):
-                    try:
-                        values = v.decode(), datetime.fromtimestamp(score, conf.tz).strftime(conf.datetime_format)
-                    except:
-                        values = v.decode(), score
-
-                    print(f"🏆 Значение: {values}")
-
+            if job_next_run:
+                # Приводим время к UTC (если оно не в UTC)
+                job_next_run = job_next_run.astimezone(timezone.utc)
+                next_run_str = job_next_run.strftime("%Y-%m-%d %H:%M:%S UTC")
             else:
-                print("⚠️ Неизвестный тип данных, попробуйте исследовать вручную.")
+                next_run_str = "Не запланировано"
 
-    except Exception as ex:
-        log_error(ex)
+            text += (
+                f"🔹 Задача ID: {job_id.decode()}\n"
+                f"  ➜ Функция: {job['func']}\n"
+                f"  ➜ Следующее выполнение: {next_run_str}\n"
+            )
+
+        except Exception as e:
+            text += f"⚠️ Ошибка при декодировании задачи {job_id.decode()}: {e}\n"
+
+    log_error(text, with_traceback=False)
