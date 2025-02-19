@@ -105,44 +105,48 @@ async def del_funnel_job(funnel_id: int):
 
 # проверяет ключи
 async def check_redis_keys():
-    print('🔍 Ключи в Redis (db=1):')
-    keys_tts = redis_client_1.keys("*")
+    try:
+        print('🔍 Ключи в Redis (db=1):')
+        keys_tts = redis_client_1.keys("*")
 
-    for key in keys_tts:
-        key = key.decode()  # Декодируем ключ в строку
-        key_type = redis_client_1.type(key).decode()  # Определяем тип ключа
-        print(f"\n🔹 Ключ: {key} (Тип: {key_type})")
+        for key in keys_tts:
+            key = key.decode()  # Декодируем ключ в строку
+            key_type = redis_client_1.type(key).decode()  # Определяем тип ключа
+            print(f"\n🔹 Ключ: {key} (Тип: {key_type})")
 
-        if key_type == "string":
-            value = redis_client_1.get(key).decode()
-            print(f"📜 Значение (string): {value}")
+            if key_type == "string":
+                value = redis_client_1.get(key).decode()
+                print(f"📜 Значение (string): {value}")
 
-        elif key_type == "hash":
-            value = redis_client_1.hgetall(key)
-            decoded_value = {}
-            for k, v in value.items():
-                try:
-                    decoded_value[k.decode()] = v.decode()
-                except UnicodeDecodeError:
-                    decoded_value[k.decode()] = 'v'  # Оставляем в байтах
-            print(f"📦 Значение (hash): {decoded_value}")
+            elif key_type == "hash":
+                value = redis_client_1.hgetall(key)
+                decoded_value = {}
+                for k, v in value.items():
+                    try:
+                        decoded_value[k.decode()] = v.decode()
+                    except UnicodeDecodeError:
+                        decoded_value[k.decode()] = 'v'  # Оставляем в байтах
+                print(f"📦 Значение (hash): {decoded_value}")
 
-        elif key_type == "list":
-            value = [v.decode() for v in redis_client_1.lrange(key, 0, -1)]
-            print(f"📋 Значение (list): {value}")
+            elif key_type == "list":
+                value = [v.decode() for v in redis_client_1.lrange(key, 0, -1)]
+                print(f"📋 Значение (list): {value}")
 
-        elif key_type == "set":
-            value = {v.decode() for v in redis_client_1.smembers(key)}
-            print(f"🔢 Значение (set): {value}")
+            elif key_type == "set":
+                value = {v.decode() for v in redis_client_1.smembers(key)}
+                print(f"🔢 Значение (set): {value}")
 
-        elif key_type == "zset":
-            for v, score in redis_client_1.zrange(key, 0, -1, withscores=True):
-                try:
-                    values = v.decode(), datetime.fromtimestamp(score, conf.tz).strftime(conf.datetime_format)
-                except:
-                    values = v.decode(), score
+            elif key_type == "zset":
+                for v, score in redis_client_1.zrange(key, 0, -1, withscores=True):
+                    try:
+                        values = v.decode(), datetime.fromtimestamp(score, conf.tz).strftime(conf.datetime_format)
+                    except:
+                        values = v.decode(), score
 
-                print(f"🏆 Значение: {values}")
+                    print(f"🏆 Значение: {values}")
 
-        else:
-            print("⚠️ Неизвестный тип данных, попробуйте исследовать вручную.")
+            else:
+                print("⚠️ Неизвестный тип данных, попробуйте исследовать вручную.")
+
+    except Exception as ex:
+        log_error(ex)
