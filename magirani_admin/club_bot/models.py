@@ -256,3 +256,21 @@ class Funnel(models.Model):
 
     def __str__(self):
         return f"Воронка #{self.id}"
+
+
+# виртуальная модель для просмотра работ в редисе
+class RedisJob(models.Model):
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        verbose_name="Название файла",
+    )
+    content = models.TextField(verbose_name="Содержимое",)
+
+    class Meta:
+        verbose_name = "Конфигурация"
+        verbose_name_plural = "Конфигурации"
+        managed = False
+
+    def save(self, *args, **kwargs):
+        return

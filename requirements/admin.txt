@@ -1,5 +1,6 @@
 Django
 django-unfold
+django-import-export
 psycopg2
 pyTelegramBotAPI
 pytz

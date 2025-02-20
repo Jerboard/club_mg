@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'club_bot',
+    'import_export',
 ]
 
 MIDDLEWARE = [
@@ -65,6 +66,7 @@ DATABASES = {
         'USER': os.getenv('POSTGRES_USER'),
         'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
         'HOST': os.getenv('DB_HOST') if DEBUG else os.getenv('DB_HOST_REMOVE'),
+        # 'HOST': os.getenv('DB_HOST_REMOVE') if DEBUG else os.getenv('DB_HOST_REMOVE'),
         'PORT': os.getenv('DB_PORT'),
     }}
 
@@ -117,4 +119,44 @@ ps_pay_data = {
         'rub': os.getenv('PS_KEY_RUB'),
         'som': os.getenv('PS_KEY_SOM')
     }
+}
+
+LOG_DIR = os.path.join(BASE_DIR, 'logs')
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'WARNING',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': os.path.join(LOG_DIR, 'django.log'),
+            'when': 'midnight',
+            'backupCount': 7,
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'INFO',
+            # 'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
 }

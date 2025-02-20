@@ -6,6 +6,7 @@ from random import randint
 
 import logging
 import pickle
+import os
 
 
 from config import conf
@@ -120,31 +121,33 @@ def get_scheduled_jobs():
     """Получает все задачи APScheduler из Redis и выводит их время выполнения в UTC."""
     jobs = redis_client_1.hgetall("apscheduler.jobs")
 
-    if not jobs:
+    if jobs:
+        text = "📅 Запланированные задачи в UTC:\n"
+        for job_id, job_data in jobs.items():
+            try:
+                job = pickle.loads(job_data)  # Десериализация данных
+                job_next_run = job.get("next_run_time")  # Дата следующего выполнения
+
+                if job_next_run:
+                    # Приводим время к UTC (если оно не в UTC)
+                    job_next_run = job_next_run.astimezone(timezone.utc)
+                    next_run_str = job_next_run.strftime("%Y-%m-%d %H:%M:%S UTC")
+                else:
+                    next_run_str = "Не запланировано"
+
+                text += (
+                    f"🔹 Задача ID: {job_id.decode()}\n"
+                    f"  ➜ Функция: {job['func']}\n"
+                    f"  ➜ Следующее выполнение: {next_run_str}\n"
+                )
+
+            except Exception as e:
+                text += f"⚠️ Ошибка при декодировании задачи {job_id.decode()}: {e}\n"
+
+    else:
         text = "⛔ В Redis нет задач APScheduler."
-        log_error(text, with_traceback=False)
-        return
 
-    text = "📅 Запланированные задачи в UTC:\n"
-    for job_id, job_data in jobs.items():
-        try:
-            job = pickle.loads(job_data)  # Десериализация данных
-            job_next_run = job.get("next_run_time")  # Дата следующего выполнения
+    path = os.path.join('storage', 'jobs.txt')
+    with open(path, "w", encoding="utf-8") as file:
+        file.write(text)
 
-            if job_next_run:
-                # Приводим время к UTC (если оно не в UTC)
-                job_next_run = job_next_run.astimezone(timezone.utc)
-                next_run_str = job_next_run.strftime("%Y-%m-%d %H:%M:%S UTC")
-            else:
-                next_run_str = "Не запланировано"
-
-            text += (
-                f"🔹 Задача ID: {job_id.decode()}\n"
-                f"  ➜ Функция: {job['func']}\n"
-                f"  ➜ Следующее выполнение: {next_run_str}\n"
-            )
-
-        except Exception as e:
-            text += f"⚠️ Ошибка при декодировании задачи {job_id.decode()}: {e}\n"
-
-    log_error(text, with_traceback=False)

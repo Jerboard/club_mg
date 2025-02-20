@@ -1,8 +1,10 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
-from django.utils.html import format_html
+from django.db import models
+from django.utils.html import format_html, mark_safe
 
-import redis
+import os
+from magirani_admin import settings
 
 from .models import (
     User,
@@ -17,6 +19,7 @@ from .models import (
     MailJournal,
     ErrorJournal,
     Funnel,
+    RedisJob
 )
 
 
@@ -207,3 +210,11 @@ class FunnelAdmin(ModelAdmin):
             return str(obj.user_id)
 
     user_full_name.short_description = 'Пользователь'
+
+from import_export.admin import ImportExportActionModelAdmin
+
+# Функции для работы с файлами
+STORAGE_PATH = os.path.join(settings.BASE_DIR, "storage")  # путь к папке storage
+
+
+# class TicketAdmin(ImportExportActionModelAdmin):
