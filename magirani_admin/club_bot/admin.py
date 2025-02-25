@@ -27,7 +27,7 @@ from .models import (
 class Veiw_Admin_Table(ModelAdmin):
     list_display = ['user_id', 'full_name', 'username',  'status', 'kick_date', 'last_payment_datetime',
                     'recurrent', 'tariff', 'email']
-    search_fields = ['user', 'username', 'email']
+    search_fields = ['user_id', 'username', 'email']
     list_filter = ('status',)
 
     def last_payment_datetime(self, odj):

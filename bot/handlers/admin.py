@@ -36,6 +36,7 @@ async def admin(msg: Message, state: FSMContext):
             'user_id': user_info.user_id if user_info else None
         })
 
+        print(f'>>> {user_info.user_id}')
         if user_info:
             if user_info.user_id == 11111:
                 text = 'Для продления доступа пользователю необходимо получить доступ по текущему тарифу.'
@@ -79,6 +80,8 @@ async def add_months_2(cb: CallbackQuery, state: FSMContext):
     _, tariff_str = cb.data.split (':')
     data = await state.get_data ()
     await state.clear ()
+    # logging.warning(f'tariff_str>>>>> : {tariff_str}')
+    # logging.warning(f'data>>>>> : {data}')
 
     if tariff_str == 'del':
         await cb.message.delete ()
@@ -104,11 +107,12 @@ async def add_months_2(cb: CallbackQuery, state: FSMContext):
             )
 
             total_amount = await db.get_amount(tariff)
-            await db.save_bill (user_id=data ['user_id'], total_amount=total_amount, payment_id=pay_method.name)
+            await db.save_bill (user_id=user_info.user_id, total_amount=total_amount, payment_id=pay_method.name)
             await bot.unban_chat_member (
                 chat_id=conf.channel_id,
-                user_id=data ['user_id'],
-                only_if_banned=True)
+                user_id=user_info.user_id,
+                only_if_banned=True
+            )
 
             await cb.message.edit_text (f'✅Продлено {data ["email"]} до {kick_date.strftime (conf.date_format)}')
             try:
