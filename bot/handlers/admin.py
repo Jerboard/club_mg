@@ -36,7 +36,6 @@ async def admin(msg: Message, state: FSMContext):
             'user_id': user_info.user_id if user_info else None
         })
 
-        print(f'>>> {user_info.user_id}')
         if user_info:
             if user_info.user_id == 11111:
                 text = 'Для продления доступа пользователю необходимо получить доступ по текущему тарифу.'
